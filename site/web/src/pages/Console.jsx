@@ -1,114 +1,134 @@
-// The negotiation monitor.
+// The negotiation monitor: live from Snowflake.
 //
-// Data path: a bridge running next to the seller's Snowflake account publishes
-// NEGOTIATIONS / NEGOTIATION_LEDGER / ORDERS into Firestore under
-// workspaces/{uid}/..., and this page renders them live. Approve and Decline
-// write a command document that the bridge executes with PUBLIC.APPROVE_ORDER.
-// With no bridge connected it shows the demo dataset, labelled as such.
+// /console polls the monitor_feed Cloud Function, which reads NEGOTIATIONS,
+// NEGOTIATION_LEDGER and ORDERS straight from the seller's Snowflake account.
+// A negotiation a buyer runs from Claude Desktop shows up here within seconds.
+// Approve and Decline call monitor_decide, which runs PUBLIC.APPROVE_ORDER.
+//
+// There is no sample data in production. Until Setup step 1 names the
+// Snowflake account Counteroffer is connected to, the page says so.
 //
 // Buyer text is attacker-controlled. React escapes every string it renders and
 // nothing here uses dangerouslySetInnerHTML, so it can only ever be text.
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import {
-  addDoc, collection, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp
-} from "firebase/firestore";
-import { db } from "../lib/firebase.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../lib/firebase.js";
 import { useSession } from "../lib/session.jsx";
 import { ago, asDate, big, clockTime, money, num, pct, termsStr } from "../lib/format.js";
 import { actorOf, answerOf, flagCounts, flagsOf, matches, sortData, statusOf } from "../lib/monitor.js";
-import { demoData } from "../data/demoTrace.js";
-import { CodeBlock } from "../components/Copy.jsx";
 import "../styles/console.css";
 
-const EVENT_LIMIT = 500;
+const POLL_MS = 3000;
+const RETRY_MS = 6000;
 const PAGE = 60;
-const STALE_MS = 90000;
+const MAX_EVENTS = 1000;
+
+const feed = httpsCallable(functions, "monitor_feed", { timeout: 60000 });
+const decideFn = httpsCallable(functions, "monitor_decide", { timeout: 60000 });
 
 function Status({ value }) {
   const [label, tone] = statusOf(value);
   return <span className={"status " + tone}>{label}</span>;
 }
 
+// Error from the callable -> what the page should say.
+function classify(err) {
+  const code = String((err && err.code) || "");
+  const msg = String((err && err.message) || "");
+  if (code === "functions/failed-precondition" && msg.startsWith("not_connected")) return "not_connected";
+  if (code === "functions/permission-denied") return "not_reachable";
+  if (code === "functions/unauthenticated") return "signed_out";
+  return "error";
+}
+
+function mergeEvents(prev, incoming) {
+  if (!incoming.length) return prev;
+  const seenIds = new Set(prev.map(e => e.event_id));
+  const fresh = incoming.filter(e => !seenIds.has(e.event_id));
+  if (!fresh.length) return prev;
+  return [...fresh, ...prev].sort((a, b) => (num(b.event_id) || 0) - (num(a.event_id) || 0)).slice(0, MAX_EVENTS);
+}
+
 export default function Console() {
   const { user, preview } = useSession();
   const uid = user && user.uid;
-  const email = (user && (user.email || user.displayName)) || "you";
   const [params, setParams] = useSearchParams();
 
-  const [live, setLive] = useState({ meta: null, negotiations: null, events: null, orders: null });
-  const [commands, setCommands] = useState(new Map());
-  const [demo, setDemo] = useState(null);
-  const [company, setCompany] = useState("");
+  const [data, setData] = useState(null);
+  const [state, setState] = useState("loading");     // loading | live | not_connected | not_reachable | signed_out | error
+  const [lastOk, setLastOk] = useState(null);
   const [scope, setScope] = useState("one");
   const [filters, setFilters] = useState({ q: "", actor: "", action: "", flagged: false });
   const [shown, setShown] = useState(PAGE);
-  const [bridgeOpen, setBridgeOpen] = useState(false);
+  const [pendingDecision, setPendingDecision] = useState({});  // order_id -> "APPROVE" | "REJECT"
+  const [decisionError, setDecisionError] = useState("");
   const [announce, setAnnounce] = useState("");
   const [, setTick] = useState(0);
   const seen = useRef(new Set());
   const painted = useRef(false);
+  const sinceRef = useRef(0);
+  const timer = useRef(null);
+  const alive = useRef(true);
 
   useEffect(() => { document.title = "Monitor · Counteroffer"; }, []);
-
-  // Keep "x minutes ago" honest.
   useEffect(() => {
-    const t = setInterval(() => { if (!document.hidden) setTick(x => x + 1); }, 15000);
+    const t = setInterval(() => { if (!document.hidden) setTick(x => x + 1); }, 5000);
     return () => clearInterval(t);
   }, []);
 
-  // ---------- subscriptions ----------
-  useEffect(() => {
-    if (!uid) return undefined;
-    if (preview) { setLive({ meta: {}, negotiations: [], events: [], orders: [] }); return undefined; }
-
-    getDoc(doc(db, "workspaces", uid))
-      .then(s => setCompany(s.exists() ? String(s.data().company || "").trim() : ""))
-      .catch(() => {});
-
-    const ws = ["workspaces", uid];
-    const put = key => value => setLive(l => ({ ...l, [key]: value }));
-    const onErr = key => err => { console.warn("snapshot error (" + key + ")", err); setLive(l => ({ ...l, [key]: l[key] || (key === "meta" ? {} : []) })); };
-
-    const unsubs = [
-      onSnapshot(doc(db, ...ws, "meta", "bridge"), s => put("meta")(s.exists() ? s.data() : {}), onErr("meta")),
-      onSnapshot(collection(db, ...ws, "negotiations"),
-        s => put("negotiations")(s.docs.map(d => ({ id: d.id, ...d.data() }))), onErr("negotiations")),
-      onSnapshot(query(collection(db, ...ws, "events"), orderBy("event_id", "desc"), limit(EVENT_LIMIT)),
-        s => put("events")(s.docs.map(d => d.data())), onErr("events")),
-      onSnapshot(collection(db, ...ws, "orders"),
-        s => put("orders")(s.docs.map(d => ({ order_id: d.id, ...d.data() }))), onErr("orders")),
-      onSnapshot(query(collection(db, ...ws, "commands"), orderBy("created_at", "desc"), limit(40)), s => {
-        const m = new Map();
-        s.docs.forEach(d => { const c = d.data(); if (c.order_id && !m.has(c.order_id)) m.set(c.order_id, { _id: d.id, ...c }); });
-        setCommands(m);
-      }, () => {})
-    ];
-    return () => unsubs.forEach(u => u());
-  }, [uid, preview]);
-
-  const ready = live.events !== null && live.negotiations !== null;
-  const hasLive = ready && ((live.events && live.events.length) || (live.negotiations && live.negotiations.length));
-
-  useEffect(() => { if (ready && !hasLive && !demo) setDemo(demoData()); }, [ready, hasLive, demo]);
-
-  const data = useMemo(() => {
-    if (!ready) return null;
-    if (hasLive) {
-      return sortData({
-        meta: { source: "snowflake", ...(live.meta || {}) },
-        negotiations: live.negotiations || [], events: live.events || [], orders: live.orders || []
+  // ---------- polling ----------
+  const poll = useCallback(async () => {
+    clearTimeout(timer.current);
+    if (!alive.current) return;
+    if (document.hidden) return;                 // resumes on visibilitychange
+    try {
+      const res = await feed({ since: sinceRef.current });
+      if (!alive.current) return;
+      const d = res.data || {};
+      const incoming = Array.isArray(d.events) ? d.events : [];
+      setData(prev => {
+        const events = mergeEvents(prev ? prev.events : [], incoming);
+        sinceRef.current = events.length ? Math.max(...events.map(e => num(e.event_id) || 0)) : sinceRef.current;
+        return sortData({ meta: d.meta || {}, negotiations: d.negotiations || [], orders: d.orders || [], events });
       });
+      setState("live");
+      setLastOk(new Date());
+      timer.current = setTimeout(poll, POLL_MS);
+    } catch (err) {
+      if (!alive.current) return;
+      const kind = classify(err);
+      console.warn("monitor_feed:", err.code || err);
+      setState(s => (kind === "error" && s === "live") ? "live" : kind);   // keep showing data through a blip
+      if (kind === "error" || kind === "loading") timer.current = setTimeout(poll, RETRY_MS);
+      else timer.current = setTimeout(poll, 15000);   // e.g. finished Setup step 1 in another tab
     }
-    return demo ? sortData(demo) : null;
-  }, [ready, hasLive, live, demo]);
+  }, []);
 
-  const isDemo = !!data && data.meta.source === "demo";
-  const selectedId = data && (data.negotiations.some(n => n.id === params.get("n"))
-    ? params.get("n") : (data.negotiations[0] && data.negotiations[0].id)) || null;
+  useEffect(() => {
+    alive.current = true;
+    if (!uid) return undefined;
+    if (preview) {
+      import("../data/demoTrace.js").then(m => {
+        if (!alive.current) return;
+        const d = m.demoData();
+        setData(sortData({ ...d, meta: { ...d.meta, source: "preview" } }));
+        setState("live"); setLastOk(new Date());
+      });
+      return () => { alive.current = false; };
+    }
+    poll();
+    const onVis = () => { if (!document.hidden) poll(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { alive.current = false; clearTimeout(timer.current); document.removeEventListener("visibilitychange", onVis); };
+  }, [uid, preview, poll]);
+
+  // ---------- selection: follow the newest negotiation unless one was picked ----------
+  const pinned = params.get("n");
+  const selectedId = data && (data.negotiations.some(n => n.id === pinned)
+    ? pinned : (data.negotiations[0] && data.negotiations[0].id)) || null;
   const selected = data && data.negotiations.find(n => n.id === selectedId);
-
-  const eventsFor = id => data.events.filter(e => e.negotiation_id === id);
+  const eventsFor = id => (data ? data.events.filter(e => e.negotiation_id === id) : []);
 
   const visible = useMemo(() => {
     if (!data) return [];
@@ -116,7 +136,7 @@ export default function Console() {
     return base.filter(e => matches(e, filters));
   }, [data, scope, selectedId, filters]);
 
-  // Announce new moves (screen readers), mark them fresh (visual).
+  // New moves: mark them (visual) and announce them (screen readers).
   const freshKeys = useMemo(() => {
     const fresh = new Set();
     if (!data) return fresh;
@@ -143,41 +163,73 @@ export default function Console() {
     setShown(PAGE);
     requestAnimationFrame(() => document.getElementById("trace")?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
   }
+  function followNewest() {
+    const p = new URLSearchParams(params);
+    p.delete("n");
+    setParams(p, { replace: true });
+  }
 
   async function decide(order, decision) {
     const verb = decision === "APPROVE" ? "Approve" : "Decline";
     if (!window.confirm(verb + " " + order.order_id + "?\n\n" + money(order.rate) + " per load, " + big(order.tcv) +
       " contract value. This writes your decision to Snowflake.")) return;
-
-    if (isDemo) {
-      setDemo(d => {
-        const next = { ...d, orders: d.orders.map(o => o.order_id !== order.order_id ? o : {
-          ...o, status: decision === "APPROVE" ? "CONFIRMED" : "REJECTED", decided_by: email, decided_at: new Date().toISOString()
-        }) };
-        const nextId = Math.max(0, ...d.events.map(e => num(e.event_id) || 0)) + 1;
-        next.events = [{
-          event_id: nextId, ts: new Date().toISOString(), negotiation_id: order.negotiation_id,
-          actor: "HUMAN", action: "APPROVE", decision,
-          note: "Order " + order.order_id + " " + (decision === "APPROVE" ? "approved" : "declined") + " by " + email, flags: []
-        }, ...d.events];
-        return next;
-      });
-      setAnnounce("Order " + order.order_id + (decision === "APPROVE" ? " approved." : " declined."));
+    setDecisionError("");
+    if (preview) {
+      setData(d => ({ ...d, orders: d.orders.map(o => o.order_id !== order.order_id ? o : { ...o, status: decision === "APPROVE" ? "CONFIRMED" : "REJECTED", decided_at: new Date().toISOString() }) }));
       return;
     }
+    setPendingDecision(m => ({ ...m, [order.order_id]: decision }));
     try {
-      await addDoc(collection(db, "workspaces", uid, "commands"), {
-        type: "APPROVE_ORDER", order_id: order.order_id, decision, status: "QUEUED",
-        requested_by: email, created_at: serverTimestamp()
-      });
-      setAnnounce("Sent your decision on " + order.order_id + ".");
-    } catch (e) {
-      console.error(e);
-      window.alert("Couldn't send that decision (" + (e.code || "error") + "). Check that the bridge is running.");
+      await decideFn({ order_id: order.order_id, decision });
+      setAnnounce("Order " + order.order_id + (decision === "APPROVE" ? " approved." : " declined."));
+      await poll();
+    } catch (err) {
+      console.error(err);
+      setDecisionError("Couldn't " + verb.toLowerCase() + " " + order.order_id + ": " + (err.message || "try again") + ".");
+    } finally {
+      setPendingDecision(m => { const n = { ...m }; delete n[order.order_id]; return n; });
     }
   }
 
-  if (!data) return <div className="loading" role="status">Loading your negotiations…</div>;
+  // ---------- not-live states ----------
+  if (state === "loading" && !data) {
+    return <div className="wrap page monitor"><PageHead /><div className="sheet"><p className="empty">Connecting to Snowflake…</p></div></div>;
+  }
+  if (state === "not_connected" || state === "not_reachable" || state === "signed_out") {
+    return (
+      <div className="wrap page monitor">
+        <PageHead />
+        <section className="sheet notlive">
+          <div className="sheet-body">
+            {state === "not_connected" && (
+              <>
+                <h2>Connect your Snowflake account</h2>
+                <p>This page shows your storefront's negotiations live from Snowflake. Add your Snowflake account in Setup step 1 to connect it.</p>
+                <Link className="btn btn-primary" to="/app#step-1">Go to Setup</Link>
+              </>
+            )}
+            {state === "not_reachable" && (
+              <>
+                <h2>Counteroffer isn't connected to that Snowflake account</h2>
+                <p>The account in Setup step 1 isn't one Counteroffer can reach yet. Check that it's the account your storefront runs in.</p>
+                <Link className="btn" to="/app#step-1">Check Setup step 1</Link>
+              </>
+            )}
+            {state === "signed_out" && (
+              <>
+                <h2>Sign in again</h2>
+                <p>Your session ended. Sign in to see your negotiations.</p>
+                <Link className="btn btn-primary" to="/login">Sign in</Link>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
+  if (!data) {
+    return <div className="wrap page monitor"><PageHead /><div className="sheet"><p className="empty">Can't reach Snowflake right now. Retrying…</p></div></div>;
+  }
 
   const pending = data.orders.filter(o => o.status === "PENDING_APPROVAL");
   const decided = data.orders.filter(o => o.status !== "PENDING_APPROVAL")
@@ -185,24 +237,20 @@ export default function Console() {
 
   return (
     <div className="wrap page monitor">
-      <div className="pagehead">
-        <h1>Negotiations</h1>
-        <p>What your selling agent and your buyers' agents did, and what needs you.{company && <span className="muted"> {company}.</span>}</p>
-      </div>
-
-      <StatusLine data={data} isDemo={isDemo} bridgeOpen={bridgeOpen} onBridge={() => setBridgeOpen(o => !o)} />
-      {bridgeOpen && <BridgeHelp email={email} />}
+      <PageHead />
+      <StatusLine data={data} state={state} lastOk={lastOk} preview={preview} />
 
       <section className="sheet decide" aria-labelledby="decide-h">
         <div className="sheet-head">
           <h2 id="decide-h">Needs your decision</h2>
           <span className="aside">{pending.length ? "over your auto-approval limit" : "nothing waiting"}</span>
         </div>
+        {decisionError && <p className="notice bad" style={{ margin: "12px 20px" }} role="alert">{decisionError}</p>}
         {!pending.length && !decided.length && (
           <p className="empty">Deals under your auto-approval limit book themselves. Anything above it waits here for you.</p>
         )}
         {pending.concat(decided).map(o => (
-          <OrderRow key={o.order_id} order={o} command={commands.get(o.order_id)} onDecide={decide} onTrace={select} />
+          <OrderRow key={o.order_id} order={o} busy={pendingDecision[o.order_id]} onDecide={decide} onTrace={select} />
         ))}
       </section>
 
@@ -212,8 +260,11 @@ export default function Console() {
             <h2 id="rail-h">All negotiations</h2>
             <span className="aside">{data.negotiations.length || ""}</span>
           </div>
+          {pinned && data.negotiations[0] && pinned !== data.negotiations[0].id && (
+            <button type="button" className="follow" onClick={followNewest}>Follow the newest negotiation</button>
+          )}
           {data.negotiations.length === 0
-            ? <p className="empty">Nothing yet. The first time a buyer's agent calls your storefront it shows up here.</p>
+            ? <p className="empty">Waiting for the first negotiation. When a buyer's agent asks your storefront for a quote, it shows up here.</p>
             : (
               <ul className="neglist">
                 {data.negotiations.map(n => {
@@ -226,7 +277,7 @@ export default function Console() {
                         <span className="meta">
                           <span className="mono">{n.id}</span>
                           <Status value={n.status} />
-                          {ev[0] && <span>{ago(ev[0].ts)}</span>}
+                          {(ev[0] || n.updated_at) && <span>{ago(ev[0] ? ev[0].ts : n.updated_at)}</span>}
                           {inj > 0 && <span className="warn">{inj} injection{inj === 1 ? "" : "s"}</span>}
                           {probe > 0 && <span className="warn probe">probing</span>}
                         </span>
@@ -240,7 +291,7 @@ export default function Console() {
 
         <div className="detail">
           {selected ? <Detail n={selected} events={eventsFor(selected.id)} /> : (
-            <section className="sheet"><p className="empty">Pick a negotiation to see what happened.</p></section>
+            <section className="sheet"><p className="empty">No negotiations yet. Start one from Claude Desktop and it appears here.</p></section>
           )}
 
           <section className="sheet tracesheet" id="trace" aria-labelledby="trace-h">
@@ -314,81 +365,51 @@ export default function Console() {
       </div>
 
       <p className="muted small footnote">
-        Buyer messages are shown as plain text, never as markup. The ledger is append-only in Snowflake and this page
-        only reads it. The one thing it writes back is your approval.
+        Read live from your Snowflake account. Buyer messages are shown as plain text, never as markup. The ledger is
+        append-only; the one thing this page writes back is your approval.
       </p>
       <div className="sr-only" aria-live="polite">{announce}</div>
     </div>
   );
 }
 
-function StatusLine({ data, isDemo, bridgeOpen, onBridge }) {
-  const sync = asDate(data.meta.last_sync);
-  const stale = !isDemo && sync && Date.now() - sync.getTime() > STALE_MS;
+function PageHead() {
+  return (
+    <div className="pagehead">
+      <h1>Negotiations</h1>
+      <p>What your selling agent and your buyers' agents are doing, and what needs you.</p>
+    </div>
+  );
+}
+
+function StatusLine({ data, state, lastOk, preview }) {
+  const stale = state !== "live";
   const open = data.negotiations.filter(n => n.status === "OPEN" || n.status === "FINAL").length;
   const pending = data.orders.filter(o => o.status === "PENDING_APPROVAL");
   const pendingValue = pending.reduce((s, o) => s + (num(o.tcv) || 0), 0);
   const booked = data.orders.filter(o => o.status === "CONFIRMED");
   const bookedValue = booked.reduce((s, o) => s + (num(o.tcv) || 0), 0);
   const { inj, probe } = flagCounts(data.events);
-  const source = isDemo ? ["Worked example", "amber"] : stale ? ["Bridge stalled", "red"] : ["Live", "green"];
+  const source = preview ? ["Preview data", "amber"] : stale ? ["Reconnecting", "red"] : ["Live from Snowflake", "green"];
 
   return (
-    <>
-      <div className="statusline">
-        <span className={"status " + source[1] + (source[0] === "Live" ? " pulse" : "")}><b>{source[0]}</b></span>
-        <span className="figures">
-          <span><b>{open}</b> live</span>
-          {pending.length > 0 && <span className="due"><b>{pending.length}</b> waiting on you, {big(pendingValue)}</span>}
-          {inj + probe > 0 && <span className="alert"><b>{inj + probe}</b> attempt{inj + probe === 1 ? "" : "s"} blocked</span>}
-          {booked.length > 0 && <span><b>{big(bookedValue)}</b> booked</span>}
-        </span>
-        <span className="grow" />
-        <span className="readout">Diesel <span className="mono">{data.meta.diesel != null ? "$" + Number(data.meta.diesel).toFixed(2) : "—"}</span></span>
-        {!isDemo && <span className="readout">Updated {ago(sync)}</span>}
-        <button type="button" className="linkbtn small" aria-expanded={bridgeOpen} onClick={onBridge}>
-          {bridgeOpen ? "Hide setup" : isDemo ? "Connect your data" : "Bridge setup"}
-        </button>
-      </div>
-      {isDemo && <p className="srcnote">No bridge is connected, so this is a worked example built from our test run. Connect your data to see your own negotiations.</p>}
-      {stale && <p className="srcnote bad">The bridge hasn't checked in for a while. Restart it to resume live updates.</p>}
-    </>
+    <div className="statusline">
+      <span className={"status " + source[1] + (!preview && !stale ? " pulse" : "")}><b>{source[0]}</b></span>
+      <span className="figures">
+        <span><b>{open}</b> open</span>
+        {pending.length > 0 && <span className="due"><b>{pending.length}</b> waiting on you, {big(pendingValue)}</span>}
+        {inj + probe > 0 && <span className="alert"><b>{inj + probe}</b> attempt{inj + probe === 1 ? "" : "s"} blocked</span>}
+        {booked.length > 0 && <span><b>{big(bookedValue)}</b> booked</span>}
+      </span>
+      <span className="grow" />
+      <span className="readout">Diesel <span className="mono">{data.meta.diesel != null ? "$" + Number(data.meta.diesel).toFixed(2) : "—"}</span></span>
+      {lastOk && <span className="readout">Updated {ago(lastOk)}</span>}
+    </div>
   );
 }
 
-function BridgeHelp({ email }) {
-  const cmd = [
-    "# in your counteroffer checkout",
-    "python3 -m venv bridge/.venv && bridge/.venv/bin/pip install -r bridge/requirements.txt",
-    "",
-    "COUNTEROFFER_SF_ENV=~/.snowflake/counteroffer.env \\",
-    "CO_FB_EMAIL=" + (email || "you@example.com") + " \\",
-    "CO_FB_PASSWORD='<your Counteroffer password>' \\",
-    "  bridge/.venv/bin/python bridge/counteroffer_bridge.py --watch"
-  ].join("\n");
-  return (
-    <section className="sheet bridge" aria-labelledby="bridge-h">
-      <div className="sheet-body">
-        <h2 id="bridge-h">Stream your Snowflake ledger into this page</h2>
-        <p>
-          The bridge runs next to your Snowflake account and publishes <code>NEGOTIATION_LEDGER</code>,{" "}
-          <code>NEGOTIATIONS</code> and <code>ORDERS</code> as they change. Your approvals here go back to{" "}
-          <code>PUBLIC.APPROVE_ORDER</code>.
-        </p>
-        <CodeBlock wrap>{cmd}</CodeBlock>
-        <p className="muted small">
-          Your cost basis and floor stay in Snowflake. The bridge publishes how far an offer sits from the floor, not
-          the number, unless you pass <code>--include-floor</code>.{" "}
-          <a href="https://github.com/ardalangh/counteroffer/blob/main/bridge/README.md" target="_blank" rel="noopener noreferrer">Setup guide</a>
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function OrderRow({ order: o, command: cmd, onDecide, onTrace }) {
+function OrderRow({ order: o, busy, onDecide, onTrace }) {
   const pending = o.status === "PENDING_APPROVAL";
-  const busy = cmd && (cmd.status === "QUEUED" || cmd.status === "RUNNING");
   return (
     <div className={"order" + (pending ? " pending" : "")}>
       <div className="order-main">
@@ -404,8 +425,7 @@ function OrderRow({ order: o, command: cmd, onDecide, onTrace }) {
       </div>
       <div className="order-acts">
         {pending ? (
-          busy ? <span className="muted small">{cmd.decision === "APPROVE" ? "Approving…" : "Declining…"}</span>
-          : cmd && cmd.status === "ERROR" ? <span className="error">Bridge error: {String(cmd.result || "failed")}</span>
+          busy ? <span className="muted small">{busy === "APPROVE" ? "Approving…" : "Declining…"}</span>
           : (
             <>
               <button type="button" className="btn btn-sm" onClick={() => onDecide(o, "REJECT")}>Decline</button>

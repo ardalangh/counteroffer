@@ -125,3 +125,7 @@
 .sheet-foot { padding: 12px 20px; border-top: 1px solid var(--line); }
 .table-scroll { overflow-x: auto; }
 .footnote { margin-top: 20px; max-width: 72ch; }
+.notlive h2 { font-size: 18px; margin-bottom: 8px; }
+.notlive p { color: var(--ink-2); max-width: 60ch; margin-bottom: 18px; }
+.follow { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: var(--accent-soft); color: var(--accent-ink); font-size: 13px; font-weight: 500; padding: 9px 20px; cursor: pointer; }
+.follow:hover { text-decoration: underline; }

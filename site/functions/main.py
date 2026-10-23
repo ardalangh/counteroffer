@@ -11,16 +11,14 @@ import time
 
 from firebase_admin import firestore, initialize_app
 from firebase_functions import https_fn, options
-from firebase_functions.params import SecretParam
 
 import core
+from monitor import monitor_decide, monitor_feed  # noqa: F401  (exported: /console live feed)
 
 initialize_app()
 log = logging.getLogger("onboard")
 
-SF_ACCOUNT = SecretParam("SF_ACCOUNT")
-SF_USER = SecretParam("SF_USER")
-SF_PASSWORD = SecretParam("SF_PASSWORD")
+from sf_secrets import SF_ACCOUNT, SF_PASSWORD, SF_USER  # noqa: E402
 
 RATE_LIMIT = 40
 RATE_WINDOW_S = 3600
