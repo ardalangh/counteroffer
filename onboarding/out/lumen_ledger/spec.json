@@ -1,0 +1,162 @@
+{
+  "company_name": "Lumen Ledger",
+  "slug": "lumen_ledger",
+  "industry": "B2B SaaS (AP automation)",
+  "is_freight": false,
+  "deployable": false,
+  "unit_of_sale": "per seat per month, annual or multi-year contracts",
+  "products_or_lanes": [
+    "Core: invoice capture and approvals",
+    "Pro: Core + payments and ERP sync"
+  ],
+  "cost_drivers": {
+    "hosting_per_seat_month_usd": 6,
+    "pro_payment_passthrough_per_seat_month_usd": 4,
+    "onboarding_hours_per_new_customer": 20,
+    "onboarding_cost_per_hour_usd": 120,
+    "onboarding_amortization": "2400 / (seats x term_months), added per seat-month"
+  },
+  "cost_estimates_note": "All cost numbers are illustrative estimates. Hosting $6 given by seller as illustrative; Pro pass-through $4/seat/mo and $120/hr onboarding are interviewer defaults accepted by the seller.",
+  "margin_basis": "gross_margin (price = cost / (1 - margin)); the current engine uses markup (cost x (1 + margin)) and needs an extension",
+  "tiers": [
+    {
+      "tier": "STANDARD",
+      "description": "new logos",
+      "target_margin": 0.8,
+      "min_margin": 0.65,
+      "absolute_min_margin": 0.55,
+      "counter_buffer": 0.04,
+      "max_rounds": 8,
+      "approval_threshold_usd": 500000
+    },
+    {
+      "tier": "PREFERRED",
+      "description": "renewals",
+      "target_margin": 0.78,
+      "min_margin": 0.62,
+      "absolute_min_margin": 0.52,
+      "counter_buffer": 0.04,
+      "max_rounds": 8,
+      "approval_threshold_usd": 500000
+    },
+    {
+      "tier": "STRATEGIC",
+      "description": "enterprise accounts over 500 seats",
+      "target_margin": 0.72,
+      "min_margin": 0.55,
+      "absolute_min_margin": 0.45,
+      "counter_buffer": 0.03,
+      "max_rounds": 10,
+      "approval_threshold_usd": 500000
+    }
+  ],
+  "auto_approval_threshold_usd": 500000,
+  "levers": [
+    {
+      "lever": "TERM_12M",
+      "status": "supported",
+      "margin_credit": 0.04,
+      "hint_text": "A year-long or longer commitment improves pricing.",
+      "seller_wording": "12-month or longer commitment (~4 points)"
+    },
+    {
+      "lever": "NET15",
+      "status": "supported",
+      "margin_credit": 0.03,
+      "hint_text": "Paying faster, such as annually upfront, improves pricing.",
+      "seller_wording": "Pay annually upfront (~3 points); approximated by NET15 until a native upfront-billing lever exists"
+    },
+    {
+      "lever": "NET60",
+      "status": "supported",
+      "margin_credit": -0.02,
+      "hint_text": "Slower payment terms increase the price.",
+      "seller_wording": "NET60 costs us ~2 points"
+    },
+    {
+      "lever": "VOLUME_30",
+      "status": "supported",
+      "margin_credit": 0,
+      "hint_text": "Committing to more seats improves pricing.",
+      "seller_wording": "Not used as-is: hardcoded threshold (30 loads/week) does not fit seat commitments; credit 0"
+    },
+    {
+      "lever": "PICKUP_48H",
+      "status": "supported",
+      "margin_credit": 0,
+      "hint_text": "Scheduling flexibility does not change pricing.",
+      "seller_wording": "Not applicable to SaaS; credit 0"
+    },
+    {
+      "lever": "SEATS_200",
+      "status": "needs_engine_extension",
+      "margin_credit": 0.03,
+      "hint_text": "Committing to more seats improves pricing.",
+      "seller_wording": "Commit to 200+ seats (~3 points)"
+    },
+    {
+      "lever": "CASE_STUDY",
+      "status": "needs_engine_extension",
+      "margin_credit": 0.01,
+      "hint_text": "Partnering with us on a customer story improves pricing.",
+      "seller_wording": "Case study / logo rights (~1 point)"
+    },
+    {
+      "lever": "ANNUAL_UPFRONT",
+      "status": "needs_engine_extension",
+      "margin_credit": 0.03,
+      "hint_text": "Paying upfront improves pricing.",
+      "seller_wording": "Native annual-upfront billing lever to replace the NET15 proxy"
+    }
+  ],
+  "example_customers": [
+    {
+      "name": "Northbeam Logistics",
+      "tier": "STRATEGIC"
+    },
+    {
+      "name": "Cedar & Pine Dental Group",
+      "tier": "PREFERRED"
+    },
+    {
+      "name": "Brightwater Clinics",
+      "tier": "STANDARD"
+    }
+  ],
+  "tone": "Crisp, consultative, no hype.",
+  "agent_persona": "You are the sales desk of Lumen Ledger, an AP-automation software company serving mid-market finance teams. You negotiate per-seat subscription contracts for Core (invoice capture and approvals) and Pro (adds payments and ERP sync) with buyers, usually their AI procurement agents. You are crisp and consultative: you clarify seat count, product, term and billing, steer buyers toward longer commitments, upfront payment, larger seat commitments and case-study partnerships rather than straight discounts, and you never state a price that did not come from a tool.",
+  "proposed_pricing_model": {
+    "unit_of_sale": "seat-month",
+    "inputs": [
+      "product (CORE|PRO)",
+      "seats",
+      "term_months",
+      "billing (ANNUAL_UPFRONT|MONTHLY)",
+      "payment_terms (NET15|NET30|NET60)",
+      "case_study (bool)",
+      "new_logo vs renewal"
+    ],
+    "cost_per_seat_month": "hosting_per_seat_month + (product=PRO ? passthrough_per_seat_month : 0) + (new_logo ? onboarding_hours x onboarding_rate / (seats x term_months) : 0)",
+    "list_price_per_seat_month": "cost / (1 - target_margin)",
+    "floor_per_seat_month": "cost / (1 - GREATEST(min_margin - sum(lever credits), absolute_min_margin))",
+    "contract_value": "price_per_seat_month x seats x term_months",
+    "worked_example": "Core, 100 seats, 12 months, new logo, STANDARD: cost = 6 + 2400/1200 = $8.00; list = 8/0.20 = $40.00; floor with no levers = 8/0.35 = $22.86",
+    "lever_mapping": {
+      "12+ month term": "TERM_12M (supported as-is)",
+      "annual upfront": "NET15 (proxy) -> ANNUAL_UPFRONT (extension)",
+      "NET60": "NET60 (supported as-is)",
+      "200+ seats": "needs_engine_extension (SEATS_200; VOLUME_30 condition is 30 loads/week)",
+      "case study / logo rights": "needs_engine_extension (CASE_STUDY)"
+    },
+    "engine_changes_needed": [
+      "Product catalog table (PUBLIC.PRODUCTS) replacing LANES; private per-product cost basis replacing COST_BASIS/FUEL_INDEX",
+      "Cost formula in seat-months with onboarding amortization instead of miles x (cpm + fsc)",
+      "Gross-margin pricing: price = cost/(1-margin) instead of cost x (1+margin)",
+      "Data-driven lever conditions (e.g. LEVER_CONDITIONS table) to add SEATS_200, CASE_STUDY, ANNUAL_UPFRONT",
+      "START_NEGOTIATION/EVALUATE_OFFER/COMMIT_ORDER signatures: product, seats, term_months, billing, payment_terms, case_study instead of lane/loads/pickup window",
+      "Per-seller (multi-tenant) PRICING_POLICY and CONCESSION_LEVERS",
+      "New agent + MCP server once procs exist"
+    ]
+  },
+  "agent_name": "COUNTEROFFER.PUBLIC.LUMEN_LEDGER_SELLER"
+}

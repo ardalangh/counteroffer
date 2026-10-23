@@ -1,0 +1,44 @@
+-- =====================================================================
+-- Counteroffer · Lumen Ledger · 11_data.sql
+-- PROPOSED DATA MODEL ONLY. No executable statements.
+-- The current engine has no SaaS tables; these require the engine
+-- extension described in README.md. All numbers are illustrative.
+-- =====================================================================
+--
+-- PUBLIC.PRODUCTS  (replaces PUBLIC.LANES)
+--   PRODUCT_ID STRING  -- 'LML-CORE', 'LML-PRO'
+--   NAME       STRING  -- 'Core' (invoice capture and approvals),
+--                      -- 'Pro'  (Core + payments and ERP sync)
+--   UNIT       STRING  -- 'SEAT_MONTH'
+--
+-- PRIVATE.PRODUCT_COST_BASIS  (replaces PRIVATE.COST_BASIS + FUEL_INDEX)
+--   PRODUCT_ID                 STRING
+--   HOSTING_PER_SEAT_MONTH     NUMBER  -- 6.00 for both products
+--   PASSTHROUGH_PER_SEAT_MONTH NUMBER  -- 0.00 Core, 4.00 Pro
+--
+-- PRIVATE.ONBOARDING_COST  (one row per seller)
+--   HOURS_PER_NEW_CUSTOMER NUMBER  -- 20
+--   COST_PER_HOUR          NUMBER  -- 120.00
+--   -- amortized: 20 x 120 / (seats x term_months) per seat-month,
+--   -- applied to new logos only (STANDARD); renewals skip onboarding.
+--
+-- PRIVATE.LEVER_CONDITIONS  (makes lever conditions data, not code)
+--   LEVER     STRING  -- TERM_12M, ANNUAL_UPFRONT, SEATS_200, CASE_STUDY, NET60
+--   FIELD     STRING  -- term_months, billing, seats, case_study, payment_terms
+--   OPERATOR  STRING  -- '>=', '='
+--   VALUE     STRING  -- '12', 'ANNUAL_UPFRONT', '200', 'TRUE', 'NET60'
+--
+-- PUBLIC.CUSTOMERS  (existing table; rows to add after the extension,
+--   fictional, prefixed LML- to avoid collisions)
+--   'LML-C01', 'Northbeam Logistics',       'STRATEGIC'
+--   'LML-C02', 'Cedar & Pine Dental Group', 'PREFERRED'
+--   'LML-C03', 'Brightwater Clinics',       'STANDARD'
+--   (LIFETIME_LOADS would become LIFETIME_SEAT_MONTHS for SaaS.)
+--
+-- Pricing (gross margin):
+--   cost  = hosting + passthrough + amortized onboarding
+--   list  = cost / (1 - target_margin)
+--   floor = cost / (1 - GREATEST(min_margin - sum(credits), absolute_min_margin))
+--   e.g. Core, 100 seats, 12 mo, STANDARD: cost $8.00, list $40.00
+-- =====================================================================
+SELECT 1;

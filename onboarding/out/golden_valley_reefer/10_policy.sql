@@ -1,0 +1,44 @@
+-- =====================================================================
+-- Golden Valley Reefer · 10_policy.sql · Pricing policy + concession levers
+-- Run after the base repo sql/00..06.
+-- !! PRICING_POLICY and CONCESSION_LEVERS are shared single-tenant tables:
+--    running this file REPLACES the current seller's policy in this account.
+-- Margins are fractions (0.32 = 32%). Counter buffer / max rounds are defaults.
+-- Not offered via engine (needs extension): DROP_TRAILERS.
+-- =====================================================================
+USE ROLE BROKER_ADMIN;
+USE WAREHOUSE COUNTEROFFER_WH;
+USE DATABASE COUNTEROFFER;
+
+MERGE INTO COUNTEROFFER.PRIVATE.PRICING_POLICY t
+USING (
+  SELECT 'STANDARD'  AS TIER, 0.32 AS TARGET_MARGIN, 0.14 AS MIN_MARGIN, 0.07 AS ABSOLUTE_MIN_MARGIN, 0.04 AS COUNTER_BUFFER, 8  AS MAX_ROUNDS, 3000000 AS APPROVAL_THRESHOLD_USD
+  UNION ALL SELECT 'PREFERRED', 0.30, 0.12, 0.06, 0.04, 8,  3000000
+  UNION ALL SELECT 'STRATEGIC', 0.26, 0.09, 0.05, 0.03, 10, 3000000
+) s
+ON t.TIER = s.TIER
+WHEN MATCHED THEN UPDATE SET
+  TARGET_MARGIN = s.TARGET_MARGIN,
+  MIN_MARGIN = s.MIN_MARGIN,
+  ABSOLUTE_MIN_MARGIN = s.ABSOLUTE_MIN_MARGIN,
+  COUNTER_BUFFER = s.COUNTER_BUFFER,
+  MAX_ROUNDS = s.MAX_ROUNDS,
+  APPROVAL_THRESHOLD_USD = s.APPROVAL_THRESHOLD_USD
+WHEN NOT MATCHED THEN INSERT
+  (TIER, TARGET_MARGIN, MIN_MARGIN, ABSOLUTE_MIN_MARGIN, COUNTER_BUFFER, MAX_ROUNDS, APPROVAL_THRESHOLD_USD)
+  VALUES (s.TIER, s.TARGET_MARGIN, s.MIN_MARGIN, s.ABSOLUTE_MIN_MARGIN, s.COUNTER_BUFFER, s.MAX_ROUNDS, s.APPROVAL_THRESHOLD_USD);
+
+MERGE INTO COUNTEROFFER.PRIVATE.CONCESSION_LEVERS t
+USING (
+  SELECT 'TERM_12M' AS LEVER, 0.04 AS MARGIN_CREDIT, 'A year-long commitment improves pricing.' AS HINT_TEXT
+  UNION ALL SELECT 'VOLUME_30',  0.03,  'Committing to higher weekly volume improves pricing.'
+  UNION ALL SELECT 'PICKUP_48H', 0.02,  'A wider pickup window lets us plan around harvest timing and price more aggressively.'
+  UNION ALL SELECT 'NET15',      0.01,  'Paying faster improves pricing.'
+  UNION ALL SELECT 'NET60',      -0.02, 'Slower payment terms increase the price.'
+) s
+ON t.LEVER = s.LEVER
+WHEN MATCHED THEN UPDATE SET MARGIN_CREDIT = s.MARGIN_CREDIT, HINT_TEXT = s.HINT_TEXT
+WHEN NOT MATCHED THEN INSERT (LEVER, MARGIN_CREDIT, HINT_TEXT) VALUES (s.LEVER, s.MARGIN_CREDIT, s.HINT_TEXT);
+
+SELECT * FROM COUNTEROFFER.PRIVATE.PRICING_POLICY ORDER BY TIER;
+SELECT * FROM COUNTEROFFER.PRIVATE.CONCESSION_LEVERS ORDER BY LEVER;

@@ -1,0 +1,10 @@
+{
+  "_note": "Non-freight sanity example (fictional B2B SaaS). Expected result: spec labeled needs engine extension, no deployable agent/MCP SQL.",
+  "answers": [
+    "We're Lumen Ledger, a B2B SaaS company. We sell AP-automation software to mid-market finance teams, priced per seat per month on annual or multi-year contracts.",
+    "Products: Core (invoice capture and approvals) and Pro (adds payments and ERP sync). Our cost drivers are cloud hosting per seat (roughly $6/seat/month, illustrative), payment-processing pass-through on Pro, and onboarding/implementation hours (about 20 hours per new customer).",
+    "Tiers: STANDARD for new logos, PREFERRED for renewals, STRATEGIC for enterprise accounts over 500 seats. Margins: STANDARD target 80%, min 65%, never below 55%; PREFERRED 78/62/52; STRATEGIC 72/55/45. Example customers: Northbeam Logistics (STRATEGIC), Cedar & Pine Dental Group (PREFERRED), Brightwater Clinics (STANDARD) — all fictional.",
+    "We'll trade price for: a 12-month or longer commitment (about 4 points), paying annually upfront (about 3 points), committing to 200+ seats (about 3 points), and a case study / logo rights (about 1 point). NET60 costs us about 2 points. Auto-approve up to $500k total contract value. Tone: crisp, consultative, no hype.",
+    "Yes, that's correct. Generate everything."
+  ]
+}

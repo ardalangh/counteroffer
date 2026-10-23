@@ -1,0 +1,205 @@
+{
+  "company_name": "Golden Valley Reefer",
+  "slug": "golden_valley_reefer",
+  "industry": "Refrigerated truckload freight (reefer trucking)",
+  "is_freight": true,
+  "deployable": true,
+  "unit_of_sale": "One full reefer truckload of fresh produce, priced per load",
+  "products_or_lanes": [
+    "Salinas CA -> Chicago IL",
+    "Salinas CA -> Atlanta GA",
+    "Salinas CA -> Dallas TX",
+    "Salinas CA -> New York NY",
+    "Fresno CA -> Chicago IL",
+    "Fresno CA -> Atlanta GA",
+    "Fresno CA -> Dallas TX",
+    "Fresno CA -> New York NY"
+  ],
+  "cost_drivers": {
+    "carrier_cost_per_mile": "Per lane, $2.25-$2.70/mile ex-fuel; longer East Coast runs cheaper per mile, Dallas highest; Fresno ~$0.05/mile below Salinas",
+    "fuel": "Standard engine diesel surcharge: GREATEST(diesel - 1.20, 0) / 6.0 per mile, shared FUEL_INDEX",
+    "reefer_risk": "Claims and temperature risk justify higher margins than dry van"
+  },
+  "cost_estimates_note": "Carrier cost per mile figures are illustrative estimates provided by the seller, not audited numbers. Mileages are the seller's approximate road distances.",
+  "tiers": [
+    {
+      "tier": "STANDARD",
+      "target_margin": 0.32,
+      "min_margin": 0.14,
+      "absolute_min_margin": 0.07,
+      "counter_buffer": 0.04,
+      "max_rounds": 8,
+      "approval_threshold_usd": 3000000
+    },
+    {
+      "tier": "PREFERRED",
+      "target_margin": 0.3,
+      "min_margin": 0.12,
+      "absolute_min_margin": 0.06,
+      "counter_buffer": 0.04,
+      "max_rounds": 8,
+      "approval_threshold_usd": 3000000
+    },
+    {
+      "tier": "STRATEGIC",
+      "target_margin": 0.26,
+      "min_margin": 0.09,
+      "absolute_min_margin": 0.05,
+      "counter_buffer": 0.03,
+      "max_rounds": 10,
+      "approval_threshold_usd": 3000000
+    }
+  ],
+  "auto_approval_threshold_usd": 3000000,
+  "levers": [
+    {
+      "lever": "TERM_12M",
+      "status": "supported",
+      "margin_credit": 0.04,
+      "hint_text": "A year-long commitment improves pricing.",
+      "seller_wording": "12-month contracts, worth about 4 points of margin"
+    },
+    {
+      "lever": "VOLUME_30",
+      "status": "supported",
+      "margin_credit": 0.03,
+      "hint_text": "Committing to higher weekly volume improves pricing.",
+      "seller_wording": "30 or more loads a week, about 3 points"
+    },
+    {
+      "lever": "PICKUP_48H",
+      "status": "supported",
+      "margin_credit": 0.02,
+      "hint_text": "A wider pickup window lets us plan around harvest timing and price more aggressively.",
+      "seller_wording": "48-hour pickup window so we can plan around harvest timing, about 2 points"
+    },
+    {
+      "lever": "NET15",
+      "status": "supported",
+      "margin_credit": 0.01,
+      "hint_text": "Paying faster improves pricing.",
+      "seller_wording": "NET15 payment, about 1 point"
+    },
+    {
+      "lever": "NET60",
+      "status": "supported",
+      "margin_credit": -0.02,
+      "hint_text": "Slower payment terms increase the price.",
+      "seller_wording": "We do NOT want NET60; it should cost the buyer about 2 points"
+    },
+    {
+      "lever": "DROP_TRAILERS",
+      "status": "needs_engine_extension",
+      "margin_credit": null,
+      "hint_text": null,
+      "seller_wording": "Some shippers ask for drop trailers at the farm; we can't price that today"
+    }
+  ],
+  "example_customers": [
+    {
+      "name": "Harvest Table Markets",
+      "tier": "STRATEGIC"
+    },
+    {
+      "name": "Sierra Sun Growers",
+      "tier": "PREFERRED"
+    },
+    {
+      "name": "Bluebonnet Fresh Distributors",
+      "tier": "PREFERRED"
+    },
+    {
+      "name": "Lakeshore Produce Co.",
+      "tier": "STANDARD"
+    },
+    {
+      "name": "Peachtree Greens",
+      "tier": "STANDARD"
+    }
+  ],
+  "tone": "Warm, plain-spoken and fast, like a dispatcher who knows produce. Mention cold-chain reliability and on-time delivery; never pushy, never fluffy.",
+  "agent_persona": "You are the sales desk of Golden Valley Reefer, a refrigerated truckload carrier based in California's Central Valley that hauls fresh produce (lettuce, strawberries, grapes, citrus) from Salinas and Fresno to major distribution centers in Chicago, Atlanta, Dallas and New York. You talk like an experienced dispatcher who knows produce: warm, plain-spoken and quick, emphasizing cold-chain reliability and on-time delivery, never pushy and never fluffy.",
+  "lanes": [
+    {
+      "lane_id": "SNS-CHI",
+      "origin_city": "Salinas",
+      "origin_state": "CA",
+      "dest_city": "Chicago",
+      "dest_state": "IL",
+      "miles": 2130,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.5
+    },
+    {
+      "lane_id": "SNS-ATL",
+      "origin_city": "Salinas",
+      "origin_state": "CA",
+      "dest_city": "Atlanta",
+      "dest_state": "GA",
+      "miles": 2450,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.4
+    },
+    {
+      "lane_id": "SNS-DAL",
+      "origin_city": "Salinas",
+      "origin_state": "CA",
+      "dest_city": "Dallas",
+      "dest_state": "TX",
+      "miles": 1640,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.7
+    },
+    {
+      "lane_id": "SNS-NYC",
+      "origin_city": "Salinas",
+      "origin_state": "CA",
+      "dest_city": "New York",
+      "dest_state": "NY",
+      "miles": 2950,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.3
+    },
+    {
+      "lane_id": "FRE-CHI",
+      "origin_city": "Fresno",
+      "origin_state": "CA",
+      "dest_city": "Chicago",
+      "dest_state": "IL",
+      "miles": 2000,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.45
+    },
+    {
+      "lane_id": "FRE-ATL",
+      "origin_city": "Fresno",
+      "origin_state": "CA",
+      "dest_city": "Atlanta",
+      "dest_state": "GA",
+      "miles": 2300,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.35
+    },
+    {
+      "lane_id": "FRE-DAL",
+      "origin_city": "Fresno",
+      "origin_state": "CA",
+      "dest_city": "Dallas",
+      "dest_state": "TX",
+      "miles": 1480,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.65
+    },
+    {
+      "lane_id": "FRE-NYC",
+      "origin_city": "Fresno",
+      "origin_state": "CA",
+      "dest_city": "New York",
+      "dest_state": "NY",
+      "miles": 2800,
+      "equipment": "REEFER",
+      "carrier_cost_per_mile": 2.25
+    }
+  ],
+  "agent_name": "COUNTEROFFER.PUBLIC.GOLDEN_VALLEY_REEFER_SELLER"
+}
