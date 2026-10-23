@@ -1,7 +1,6 @@
-name: seller_console
+name: app_environment
 channels:
   - snowflake
 dependencies:
-  - python=3.11
   - streamlit=1.50.0
   - snowflake-snowpark-python
