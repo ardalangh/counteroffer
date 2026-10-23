@@ -49,6 +49,11 @@ Buyer's Claude ──MCP + OAuth──▶ Snowflake-managed MCP server  (exactly
                                                                 ▼
                                               Seller Console (Streamlit): live floor gauge,
                                               ledger, injection alerts, diesel, approvals
+                                                                │
+                                                      bridge/   │  (floor stays in Snowflake)
+                                                                ▼
+                                              /console on the web: every trace across every
+                                              negotiation, flagged attempts, approve / reject
 ```
 
 **Governance, enforced by Snowflake — not by a prompt**
@@ -72,7 +77,13 @@ Buyer's Claude ──MCP + OAuth──▶ Snowflake-managed MCP server  (exactly
 3. **Seller Console.** Deploy `ui/streamlit_app.py` as a Streamlit app in Snowflake ([`ui/README.md`](ui/README.md)), or run it locally against live data:
    `COUNTEROFFER_SF_ENV=~/.snowflake/counteroffer.env ui/.venv/bin/streamlit run ui/streamlit_app.py`
    (a `KEY=VALUE` file with `SF_ACCOUNT`, `SF_USER`, `SF_PASSWORD`, kept outside the repo). `COUNTEROFFER_MOCK=1` runs it with no Snowflake at all.
-4. **Demo helpers.** `sql/99_demo.sql` (governance checks, fuel spike, approvals, full reset) · `buyer/rogue_buyer.py` (the injection attempt) · `scripts/simulate_negotiation.py` (offline walkthrough).
+4. **Negotiation monitor (`/console`).** The same human-in-the-loop view on the web, for a seller who
+   doesn't live in Snowsight: every move of every negotiation, injection and floor-probing alerts, and
+   the approve/reject gate. It opens on a demo run until you start the bridge, which streams your own
+   ledger into it and sends approvals back to `PUBLIC.APPROVE_ORDER` —
+   see [`bridge/README.md`](bridge/README.md). The floor is not published: the bridge sends how far the
+   offer sits from it, not the number.
+5. **Demo helpers.** `sql/99_demo.sql` (governance checks, fuel spike, approvals, full reset) · `buyer/rogue_buyer.py` (the injection attempt) · `scripts/simulate_negotiation.py` (offline walkthrough).
 
 Tests: `python3 scripts/test_pricing.py` — pricing math, every decision path, no-leak checks, injection-detector precision, and a check that the decision logic inside the Snowflake procedures is byte-identical to `scripts/pricing.py`.
 
@@ -91,12 +102,13 @@ Tests: `python3 scripts/test_pricing.py` — pricing math, every decision path, 
 | `sql/06_mcp.sql` | OAuth integration + Snowflake-managed MCP server |
 | `sql/99_demo.sql` | Demo-time queries and reset |
 | `buyer/` | Claude buyer setup, rogue buyer bot, REST fallback buyer |
-| `ui/` | Seller Console (Streamlit) |
-| `site/` | Product + onboarding website (Firebase Hosting) |
+| `ui/` | Seller Console (Streamlit in Snowflake) |
+| `site/` | Product site, seller onboarding and the `/console` negotiation monitor (Firebase Hosting) |
+| `bridge/` | Publishes the ledger to `/console` and executes approvals back into Snowflake |
 
 ## What we built today
 
-Everything in this repo was written during the hackathon on October 23, 2026: the data model, pricing engine and procedures, governance, the Cortex Agent and MCP server, the buyer setup, the Seller Console, the onboarding site and the tests.
+Everything in this repo was written during the hackathon on October 23, 2026: the data model, pricing engine and procedures, governance, the Cortex Agent and MCP server, the buyer setup, both seller consoles, the ledger bridge, the onboarding site and the tests.
 
 ## Revenue model
 

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Negotiation monitor · Counteroffer</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#071022" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="console.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" data-page="home" aria-label="Counteroffer home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0b1426"/><path d="M14 44h36" stroke="#f5a623" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 7"/><path d="M14 22c10 0 12 14 18 14s8-14 18-14" fill="none" stroke="#7fd4ff" stroke-width="5" stroke-linecap="round"/></svg>
+      Counteroffer
+    </a>
+    <div class="nav-right" id="userbar" hidden>
+      <a class="btn btn-sm" href="/app" data-page="app">Setup</a>
+      <span class="who" id="who"></span>
+      <button class="btn btn-sm" type="button" id="signout">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<div class="loading" id="loading" role="status">Checking your session…</div>
+
+<main class="app-main console" id="main" hidden>
+  <div class="wrap">
+
+    <div class="app-head con-head">
+      <div>
+        <div class="eyebrow">Human in the loop</div>
+        <h1>Negotiation monitor</h1>
+        <p class="lede">Every move your selling agent and your buyers' agents make, as it happens — and the deals
+          waiting on a person. <b id="who-company">Your storefront</b>.</p>
+      </div>
+    </div>
+
+    <!-- Source / freshness strip -->
+    <div class="srcbar card" id="srcbar">
+      <span class="src-chip" id="src-chip">…</span>
+      <span class="src-note" id="src-note"></span>
+      <span class="src-spacer"></span>
+      <span class="src-kv"><b id="src-diesel">—</b><small>diesel index</small></span>
+      <span class="src-kv"><b id="src-sync">—</b><small>last sync</small></span>
+      <button class="btn btn-sm" type="button" id="bridge-toggle" aria-expanded="false" aria-controls="bridge-help">Connect live data</button>
+    </div>
+
+    <section class="card bridge-help" id="bridge-help" hidden>
+      <h3>Stream your own Snowflake ledger into this page</h3>
+      <p>This console reads what the bridge publishes for your workspace. The bridge runs next to your Snowflake
+        account — on your laptop or any box you trust — and pushes <code>PUBLIC.NEGOTIATION_LEDGER</code>,
+        <code>NEGOTIATIONS</code> and <code>ORDERS</code> up as they change. Approvals you click here go back
+        down to <code>PUBLIC.APPROVE_ORDER</code>.</p>
+      <pre class="code"><code id="bridge-cmd"></code></pre>
+      <p class="mini">Your cost basis and price floor stay in Snowflake: the bridge publishes a floor-relative
+        position for the gauge, not the number, unless you pass <code>--include-floor</code>. Full setup:
+        <a href="https://github.com/ardalangh/counteroffer/blob/main/bridge/README.md" target="_blank" rel="noopener">bridge/README.md</a>.</p>
+    </section>
+
+    <!-- Stats -->
+    <div class="stats" id="stats"></div>
+
+    <!-- Approvals queue: the actual human gate -->
+    <section class="card approvals" id="approvals" aria-labelledby="approvals-h">
+      <div class="sec-head">
+        <h2 id="approvals-h">Waiting on you</h2>
+        <span class="count" id="approvals-count"></span>
+      </div>
+      <div id="approvals-list"></div>
+    </section>
+
+    <!-- Monitor: negotiation list + trace -->
+    <div class="split">
+      <aside class="card rail" aria-labelledby="rail-h">
+        <div class="sec-head">
+          <h2 id="rail-h">Negotiations</h2>
+          <span class="count" id="rail-count"></span>
+        </div>
+        <ul class="neglist" id="neglist" role="list"></ul>
+      </aside>
+
+      <section class="detail" aria-labelledby="detail-h">
+        <div class="card detail-head" id="detail-head">
+          <h2 id="detail-h" class="sr-only">Selected negotiation</h2>
+        </div>
+
+        <div class="card feed-card">
+          <div class="sec-head feed-head">
+            <h3 id="feed-h">Trace</h3>
+            <div class="scope" role="group" aria-label="Trace scope">
+              <button type="button" class="seg" id="scope-one" aria-pressed="true">This negotiation</button>
+              <button type="button" class="seg" id="scope-all" aria-pressed="false">All negotiations</button>
+            </div>
+          </div>
+
+          <div class="filters">
+            <label class="f-search">
+              <span class="sr-only">Search the trace</span>
+              <input type="search" id="q" placeholder="Search messages, hints, rates…" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="f-sel"><span class="sr-only">Filter by actor</span>
+              <select id="f-actor">
+                <option value="">Everyone</option>
+                <option value="BUYER">Buyer agent</option>
+                <option value="SELLER_AGENT">Selling agent</option>
+                <option value="HUMAN">Human</option>
+                <option value="SYSTEM">System</option>
+              </select>
+            </label>
+            <label class="f-sel"><span class="sr-only">Filter by move</span>
+              <select id="f-action">
+                <option value="">All moves</option>
+                <option value="MESSAGE">Messages</option>
+                <option value="OFFER">Offers</option>
+                <option value="QUOTE">Quotes</option>
+                <option value="START">Opened</option>
+                <option value="COMMIT">Commits</option>
+                <option value="APPROVE">Approvals</option>
+                <option value="FUEL_UPDATE">Fuel updates</option>
+              </select>
+            </label>
+            <label class="f-check"><input type="checkbox" id="f-flagged"> Flagged only</label>
+            <span class="f-count" id="f-count" aria-live="polite"></span>
+          </div>
+
+          <div class="table-scroll">
+            <table class="trace" id="trace">
+              <caption class="sr-only">Negotiation trace, newest first</caption>
+              <colgroup><col class="c-ts"><col class="c-actor"><col><col class="c-dec"></colgroup>
+              <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Outcome</th></tr></thead>
+              <tbody id="trace-body"></tbody>
+            </table>
+          </div>
+          <div class="feed-foot">
+            <button class="btn btn-sm" type="button" id="more" hidden>Show older moves</button>
+            <span class="mini" id="trace-note"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="mini foot-note">Buyer text in this trace is attacker-controlled and is shown as plain text, never
+      rendered as markup. The ledger is append-only in Snowflake — this page is a read-only window on it, plus the
+      approve/reject decision, which is written back as a <code>HUMAN</code> event.</p>
+  </div>
+</main>
+
+<div class="sr-only" id="announce" aria-live="polite"></div>
+
+<script type="module" src="console.js"></script>
+</body>
+</html>

@@ -23,6 +23,7 @@
       Counteroffer
     </a>
     <div class="nav-right" id="userbar" hidden>
+      <a class="btn btn-sm" href="/console" data-page="console">Monitor</a>
       <span class="who" id="who"></span>
       <button class="btn btn-sm" type="button" id="signout">Sign out</button>
     </div>
@@ -39,6 +40,30 @@
       <p class="lede">Six steps. Everything runs in <em>your</em> Snowflake account under your admin. Your progress saves automatically.</p>
     </div>
 
+    <section class="card wstep ai-panel" id="ai-panel" aria-labelledby="ai-title">
+      <div class="ai-head">
+        <div>
+          <div class="eyebrow">New · agentic onboarding</div>
+          <h2 id="ai-title">Onboard with AI</h2>
+          <p class="mini" style="margin:4px 0 0">Chat with Claude (running in Snowflake Cortex). It interviews you, writes your policy, data, agent and MCP SQL, and compiles it in a rolled-back Snowflake sandbox. Nothing is deployed.</p>
+        </div>
+        <button class="btn btn-sm" type="button" id="ai-toggle" aria-expanded="true" aria-controls="ai-body">Hide</button>
+      </div>
+      <div id="ai-body">
+        <div class="ai-log" id="ai-log" role="log" aria-live="polite"></div>
+        <p class="notice bad" id="ai-err" role="alert" hidden></p>
+        <form class="ai-form" id="ai-form" autocomplete="off">
+          <label class="sr-only" for="ai-input">Message</label>
+          <textarea id="ai-input" rows="2" maxlength="4000" placeholder="Type your answer… (Enter to send, Shift+Enter for a new line)"></textarea>
+          <div class="ai-actions">
+            <button class="btn btn-amber btn-sm" type="submit" id="ai-send">Send</button>
+            <button class="linkbtn" type="button" id="ai-reset">Start over</button>
+          </div>
+        </form>
+        <div id="ai-result" hidden></div>
+      </div>
+    </section>
+
     <div class="progress">
       <div class="progress-top"><span id="progress-text">0 of 6 steps done</span><span class="save-state" id="save-state" aria-live="polite"></span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" id="bar"><i id="bar-fill"></i></div>
@@ -50,7 +75,8 @@
       <h2>Your storefront is live</h2>
       <p>Buyers' AI agents can now negotiate with <b id="live-company"></b> at:</p>
       <div class="url-box" id="live-url"></div>
-      <p style="margin:0">Your agent never sees the floor. Watch deals and approvals in the Seller Console.</p>
+      <p>Your agent never sees the floor. Watch every negotiation as it happens, and approve the deals that need a person.</p>
+      <p style="margin:0"><a class="btn btn-amber" href="/console" data-page="console">Open the negotiation monitor →</a></p>
     </section>
 
     <!-- STEP 1 -->
@@ -149,12 +175,20 @@
       <p class="lbl" style="margin-bottom:8px">Invite message</p>
       <pre class="code wrapcode"><code id="invite"></code></pre>
       <h3 style="margin:22px 0 8px">Watch &amp; approve</h3>
-      <p>Deploy the Seller Console (<a href="https://github.com/ardalangh/counteroffer/blob/main/ui/streamlit_app.py" target="_blank" rel="noopener"><code>ui/streamlit_app.py</code></a>) as a Streamlit app in Snowflake to watch negotiations live and approve deals above your approval threshold.</p>
+      <p>Open the <a href="/console" data-page="console"><b>negotiation monitor</b></a> to watch every move your
+        agent and your buyers' agents make, see flagged prompt-injection attempts, and approve or reject the deals
+        that land above your auto-approval threshold. It opens on a demo run until you start the bridge
+        (<code>bridge/counteroffer_bridge.py</code>), which streams your own
+        <code>PUBLIC.NEGOTIATION_LEDGER</code> into it and sends your approvals back to Snowflake.</p>
+      <p><a class="btn btn-amber" href="/console" data-page="console">Open the negotiation monitor →</a></p>
+      <p class="mini">Prefer to stay inside Snowflake? The same view ships as a Streamlit app —
+        <a href="https://github.com/ardalangh/counteroffer/blob/main/ui/streamlit_app.py" target="_blank" rel="noopener"><code>ui/streamlit_app.py</code></a>.</p>
       <label class="donebox"><input type="checkbox" data-done="6"> Mark done</label>
     </section>
   </div>
 </main>
 
 <script type="module" src="wizard.js"></script>
+<script type="module" src="onboard-chat.js"></script>
 </body>
 </html>

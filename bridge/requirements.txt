@@ -1,0 +1,1 @@
+snowflake-snowpark-python==1.55.3

@@ -1,9 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Each signed-in seller can read and write only their own workspace.
+    // Each signed-in seller can read and write only their own workspace: the
+    // onboarding document and everything the bridge publishes under it
+    // (negotiations, events, orders, commands, meta).
     match /workspaces/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
     match /{document=**} {
       allow read, write: if false;
