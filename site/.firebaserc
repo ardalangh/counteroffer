@@ -1,1 +1,7 @@
-{ "projects": { "default": "counteroffer-storefront" } }
+{
+  "projects": {
+    "default": "counteroffer-storefront"
+  },
+  "targets": {},
+  "etags": {}
+}

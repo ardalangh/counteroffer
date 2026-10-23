@@ -9,3 +9,6 @@ config.toml
 __pycache__/
 .venv/
 .DS_Store
+
+# firebase cache
+site/.firebase/
