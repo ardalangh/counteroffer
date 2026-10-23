@@ -1,0 +1,4 @@
+firebase-functions>=0.4.2
+firebase-admin>=6.5.0
+snowflake-connector-python>=3.12.0
+pyyaml>=6.0

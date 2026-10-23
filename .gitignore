@@ -12,3 +12,6 @@ __pycache__/
 
 # firebase cache
 site/.firebase/
+
+# firebase functions local venv
+site/functions/venv/
