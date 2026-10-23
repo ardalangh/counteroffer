@@ -43,7 +43,22 @@ def _get_session():
 
         return get_active_session()
     except Exception:
-        return None
+        pass
+    # Local live mode: run on a laptop against real Snowflake data.
+    # COUNTEROFFER_SF_ENV points to a KEY=VALUE file (SF_ACCOUNT, SF_USER, SF_PASSWORD) kept outside the repo.
+    env_file = os.environ.get("COUNTEROFFER_SF_ENV")
+    if env_file:
+        from snowflake.snowpark import Session
+
+        cfg = dict(l.strip().split("=", 1) for l in open(env_file) if "=" in l)
+        sess = Session.builder.configs({
+            "account": cfg["SF_ACCOUNT"], "user": cfg["SF_USER"], "password": cfg["SF_PASSWORD"],
+            "role": "BROKER_ADMIN", "warehouse": "COUNTEROFFER_WH",
+            "database": "COUNTEROFFER", "schema": "PUBLIC",
+        }).create()
+        sess.sql("USE SECONDARY ROLES NONE").collect()
+        return sess
+    return None
 
 
 SESSION = _get_session()
