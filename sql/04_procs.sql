@@ -242,12 +242,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
@@ -513,12 +515,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
@@ -846,12 +850,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
@@ -1130,12 +1136,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
@@ -1465,12 +1473,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
@@ -1779,12 +1789,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
@@ -2049,12 +2061,14 @@ CITY_ALIASES = {
     "hou": "Houston", "mem": "Memphis",
 }
 
+# Flags authority claims, instruction overrides and requests to dump internals.
+# Ordinary negotiation ("what's your floor?", "your margins are too fat") is NOT flagged.
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
-    r"disregard\s+(all\s+|any\s+|the\s+)?(previous|prior|above|your)",
-    r"\bsystem\b", r"\badmin", r"developer\s+mode", r"\breveal", r"\bfloor\b",
-    r"cost\s+basis", r"pricing\s+policy", r"\boverride", r"\bjailbreak",
-    r"\bmargins?\b", r"minimum\s+(price|rate)", r"\bprivate\s+schema",
+    r"(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier|your)\s+(instructions|rules|prompts?)",
+    r"\bsystem\s+(override|prompt|message|instruction)", r"developer\s+mode", r"\bjailbreak", r"\boverride\b",
+    r"\b(i\s+am|i'm|im|this\s+is)\s+(the\s+|your\s+|an?\s+|acme'?s?\s+)*(pricing\s+)?(admin|administrator|developer|engineer|owner)\b",
+    r"\b(print|reveal|dump|output|disclose|show\s+me|tell\s+me)\s+(me\s+)?(your|the)\s+(floor|cost\s+basis|pricing\s+policy|margins?|system\s+prompt|instructions)",
+    r"cost\s+basis", r"pricing\s+policy", r"\bprivate\s+schema",
 ]
 
 INJECTION_NOTE = ("This message claims authority or asks for internal pricing. "
