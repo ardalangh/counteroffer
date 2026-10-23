@@ -1,0 +1,12 @@
+.login { min-height: 100vh; display: flex; flex-direction: column; }
+.login-top .wrap { height: 64px; display: flex; align-items: center; }
+.login-main { flex: 1; display: grid; place-items: start center; padding: 6vh 16px 64px; }
+.login-box { width: 100%; max-width: 380px; }
+.login-box h1 { font-size: 26px; margin-bottom: 6px; }
+.login-sub { color: var(--ink-2); margin-bottom: 24px; }
+.google { gap: 10px; }
+.or { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--ink-3); font-size: 13px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.field-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.field-row label { font-size: 13.5px; font-weight: 500; }
+.login-foot { margin: 22px 0 0; text-align: center; font-size: 14px; color: var(--ink-2); }

@@ -1,0 +1,55 @@
+.chat { margin-bottom: 24px; }
+.chat-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px; }
+.chat-title { flex: 1; min-width: 0; }
+.chat-title h2 { font-size: 15.5px; margin-bottom: 4px; }
+.chat-title p { color: var(--ink-2); font-size: 14px; margin: 0; max-width: 70ch; }
+#chat-body { border-top: 1px solid var(--line); padding: 4px 20px 20px; }
+
+.chat-log { display: flex; flex-direction: column; gap: 12px; max-height: 440px; overflow-y: auto; padding: 16px 2px; }
+.bubble { max-width: min(78%, 640px); font-size: 14.5px; line-height: 1.55; }
+.bubble .who { display: block; font-size: 12px; color: var(--ink-3); margin-bottom: 3px; }
+.bubble .text { display: block; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 14px; padding: 10px 14px; }
+.bubble.assistant { align-self: flex-start; }
+.bubble.assistant .text { background: var(--sunken); color: var(--ink); border-top-left-radius: 4px; }
+.bubble.user { align-self: flex-end; text-align: right; }
+.bubble.user .text { background: var(--ink); color: var(--surface); border-top-right-radius: 4px; text-align: left; }
+.typing { display: inline-flex; gap: 4px; padding: 12px 14px; background: var(--sunken); border-radius: 14px; border-top-left-radius: 4px; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: blink 1.2s infinite ease-in-out; }
+.typing i:nth-child(2) { animation-delay: .15s; }
+.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+.chat-err { margin: 4px 0 12px; }
+
+/* The composer: one box, send button inside it. */
+.composer {
+  position: relative; display: flex; align-items: flex-end; gap: 8px;
+  border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface);
+  padding: 8px 8px 8px 14px; transition: border-color .12s, box-shadow .12s;
+}
+.composer:hover { border-color: var(--ink-3); }
+.composer:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
+.composer textarea {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: none; resize: none; color: var(--ink);
+  font: 400 15px/1.5 var(--sans); padding: 5px 0; max-height: 180px; min-height: 24px;
+}
+.composer textarea::placeholder { color: var(--ink-3); }
+.composer textarea:focus { box-shadow: none; }
+.composer .send {
+  flex: none; width: 34px; height: 34px; border-radius: 9px; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: var(--accent); color: var(--on-accent);
+  transition: background-color .12s, opacity .12s;
+}
+.composer .send:hover { background: var(--accent-hover); }
+.composer .send:disabled { opacity: .35; cursor: default; background: var(--line-strong); color: var(--ink-2); }
+.composer .send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chat-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 12.5px; color: var(--ink-3); }
+
+.chat-result { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.chat-result h3 { font-size: 15.5px; margin-bottom: 12px; }
+.kv { margin: 0 0 16px; display: grid; gap: 0; }
+.kv > div { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.kv dt { color: var(--ink-3); }
+.kv dd { margin: 0; }
+.chat-file { margin-bottom: 8px; }
+.chat-file-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 13.5px; }
