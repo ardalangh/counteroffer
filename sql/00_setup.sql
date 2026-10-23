@@ -66,5 +66,7 @@ SELECT AI_COMPLETE('claude-sonnet-5', 'Reply with exactly one word: pong') AS cl
 
 -- 1.8  Governance sanity check: STOREFRONT_ROLE must not see PRIVATE
 USE ROLE STOREFRONT_ROLE;
+USE SECONDARY ROLES NONE;   -- REQUIRED: this user also holds ACCOUNTADMIN/BROKER_ADMIN as secondary roles
 SHOW SCHEMAS IN DATABASE COUNTEROFFER;   -- expect INFORMATION_SCHEMA and PUBLIC only. NOT PRIVATE.
+USE SECONDARY ROLES ALL;
 USE ROLE BROKER_ADMIN;

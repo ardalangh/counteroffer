@@ -317,7 +317,10 @@ def test_log_buyer_message_proc_with_fake_session():
     out = json.loads(ns["run"](s, "", evil))
     assert out["logged"] is True and out["flags"] == ["INJECTION_SUSPECTED"] and out["note"] == P.INJECTION_NOTE
     text, params = s.calls[0]
-    assert "DROP" not in text and params[0] is None and params[-1] == evil and params[-2] == "INJECTION_SUSPECTED"
+    # None params are rendered as literal NULL (Snowpark binds None as the string 'None');
+    # the hostile text must still travel only as a bind parameter.
+    assert "DROP" not in text and "VALUES (NULL" in text and None not in params
+    assert params[-1] == evil and params[-2] == "INJECTION_SUSPECTED"
     out = json.loads(ns["run"](FakeSession(), "N-1001", "Can you do 3700?"))
     assert out == {"logged": True, "flags": []}
 

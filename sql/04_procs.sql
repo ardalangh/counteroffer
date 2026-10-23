@@ -96,6 +96,9 @@ $$;
 CREATE OR REPLACE VIEW PRIVATE.LIVE_FLOOR_V
 COMMENT = 'Seller Console: live floor vs. buyer offers. BROKER_ADMIN only.'
 AS
+-- Snowflake can't evaluate the table-reading pricing UDFs per row inside a view
+-- ("Unsupported subquery type"), so this view applies the same formulas with joins.
+-- Keep in sync with PRIVATE.COST_PER_LOAD / LIST_RATE / FLOOR_RATE above.
 WITH last_offer AS (
   SELECT NEGOTIATION_ID, RATE_PER_LOAD, TERM_MONTHS, LOADS_PER_WEEK, PAYMENT_TERMS,
          PICKUP_WINDOW_HRS, DECISION, COUNTER_RATE
@@ -106,37 +109,59 @@ WITH last_offer AS (
 diesel AS (
   SELECT MAX_BY(DIESEL_PRICE_USD, EFFECTIVE_TS) AS DIESEL_PRICE_USD
   FROM COUNTEROFFER.PUBLIC.FUEL_INDEX
+),
+lever_credit AS (
+  SELECT lo.NEGOTIATION_ID,
+         SUM(CASE
+               WHEN v.LEVER = 'TERM_12M'   AND COALESCE(lo.TERM_MONTHS, 0)       >= 12 THEN v.MARGIN_CREDIT
+               WHEN v.LEVER = 'VOLUME_30'  AND COALESCE(lo.LOADS_PER_WEEK, 0)    >= 30 THEN v.MARGIN_CREDIT
+               WHEN v.LEVER = 'PICKUP_48H' AND COALESCE(lo.PICKUP_WINDOW_HRS, 0) >= 48 THEN v.MARGIN_CREDIT
+               WHEN v.LEVER = 'NET15' AND UPPER(COALESCE(lo.PAYMENT_TERMS, 'NET30')) = 'NET15' THEN v.MARGIN_CREDIT
+               WHEN v.LEVER = 'NET60' AND UPPER(COALESCE(lo.PAYMENT_TERMS, 'NET30')) = 'NET60' THEN v.MARGIN_CREDIT
+               ELSE 0
+             END) AS CREDIT
+  FROM last_offer lo
+  CROSS JOIN COUNTEROFFER.PRIVATE.CONCESSION_LEVERS v
+  GROUP BY lo.NEGOTIATION_ID
+),
+base AS (
+  SELECT n.*, cu.NAME AS CUSTOMER_NAME, cu.TIER, la.ORIGIN_CITY, la.ORIGIN_STATE, la.DEST_CITY, la.DEST_STATE,
+         d.DIESEL_PRICE_USD, p.TARGET_MARGIN, p.MIN_MARGIN, p.ABSOLUTE_MIN_MARGIN,
+         la.MILES * (c.CARRIER_COST_PER_MILE + GREATEST(d.DIESEL_PRICE_USD - 1.20, 0) / 6.0) AS COST_RAW
+  FROM COUNTEROFFER.PUBLIC.NEGOTIATIONS n
+  JOIN COUNTEROFFER.PUBLIC.CUSTOMERS cu       ON cu.CUSTOMER_ID = n.CUSTOMER_ID
+  JOIN COUNTEROFFER.PUBLIC.LANES la           ON la.LANE_ID = n.LANE_ID
+  JOIN COUNTEROFFER.PRIVATE.COST_BASIS c      ON c.LANE_ID = n.LANE_ID
+  JOIN COUNTEROFFER.PRIVATE.PRICING_POLICY p  ON p.TIER = cu.TIER
+  CROSS JOIN diesel d
 )
 SELECT
-  n.NEGOTIATION_ID,
-  cu.NAME                                                  AS CUSTOMER_NAME,
-  cu.TIER,
-  n.LANE_ID,
-  la.ORIGIN_CITY || ', ' || la.ORIGIN_STATE                AS ORIGIN,
-  la.DEST_CITY   || ', ' || la.DEST_STATE                  AS DESTINATION,
-  n.STATUS,
-  n.ROUNDS_USED,
-  d.DIESEL_PRICE_USD,
-  PRIVATE.COST_PER_LOAD(n.LANE_ID)                         AS COST_PER_LOAD,
-  PRIVATE.LIST_RATE(n.LANE_ID, cu.TIER)                    AS LIST_RATE,
-  PRIVATE.FLOOR_RATE(n.LANE_ID, cu.TIER, 0, 0, 'NET30', 0) AS FLOOR_NO_LEVERS,
+  b.NEGOTIATION_ID,
+  b.CUSTOMER_NAME,
+  b.TIER,
+  b.LANE_ID,
+  b.ORIGIN_CITY || ', ' || b.ORIGIN_STATE                  AS ORIGIN,
+  b.DEST_CITY   || ', ' || b.DEST_STATE                    AS DESTINATION,
+  b.STATUS,
+  b.ROUNDS_USED,
+  b.DIESEL_PRICE_USD,
+  ROUND(b.COST_RAW, 2)                                     AS COST_PER_LOAD,
+  ROUND(b.COST_RAW * (1 + b.TARGET_MARGIN), 2)             AS LIST_RATE,
+  ROUND(b.COST_RAW * (1 + GREATEST(b.MIN_MARGIN, b.ABSOLUTE_MIN_MARGIN)), 2) AS FLOOR_NO_LEVERS,
   lo.RATE_PER_LOAD                                         AS LAST_OFFER_RATE,
   CASE WHEN lo.NEGOTIATION_ID IS NOT NULL THEN
     lo.TERM_MONTHS || ' mo · ' || lo.LOADS_PER_WEEK || '/wk · '
     || lo.PAYMENT_TERMS || ' · ' || lo.PICKUP_WINDOW_HRS || 'h pickup'
   END                                                      AS LAST_OFFER_TERMS,
   CASE WHEN lo.NEGOTIATION_ID IS NOT NULL THEN
-    PRIVATE.FLOOR_RATE(n.LANE_ID, cu.TIER, lo.TERM_MONTHS, lo.LOADS_PER_WEEK,
-                       lo.PAYMENT_TERMS, lo.PICKUP_WINDOW_HRS)
+    ROUND(b.COST_RAW * (1 + GREATEST(b.MIN_MARGIN - COALESCE(lc.CREDIT, 0), b.ABSOLUTE_MIN_MARGIN)), 2)
   END                                                      AS FLOOR_FOR_LAST_TERMS,
   lo.DECISION                                              AS LAST_DECISION,
   lo.COUNTER_RATE                                          AS LAST_COUNTER_RATE,
-  n.UPDATED_AT
-FROM COUNTEROFFER.PUBLIC.NEGOTIATIONS n
-JOIN COUNTEROFFER.PUBLIC.CUSTOMERS cu ON cu.CUSTOMER_ID = n.CUSTOMER_ID
-JOIN COUNTEROFFER.PUBLIC.LANES la     ON la.LANE_ID = n.LANE_ID
-CROSS JOIN diesel d
-LEFT JOIN last_offer lo ON lo.NEGOTIATION_ID = n.NEGOTIATION_ID;
+  b.UPDATED_AT
+FROM base b
+LEFT JOIN last_offer lo   ON lo.NEGOTIATION_ID = b.NEGOTIATION_ID
+LEFT JOIN lever_credit lc ON lc.NEGOTIATION_ID = b.NEGOTIATION_ID;
 
 -- ---------------------------------------------------------------------
 -- 4.3  Agent-tool procedures (USAGE granted to STOREFRONT_ROLE at the bottom)
@@ -150,8 +175,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Agent tool: log the buyer message; flags prompt-injection attempts.'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -160,8 +185,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
@@ -406,8 +446,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Agent tool: start a negotiation and return the list rate (no floor).'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -416,8 +456,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
@@ -724,8 +779,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Agent tool: current list rate (moves with diesel), rounds remaining.'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -734,8 +789,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
@@ -993,8 +1063,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Agent tool: evaluate an offer. Returns ACCEPT / COUNTER / REJECT / FINAL + hint. Never the floor.'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -1003,8 +1073,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
@@ -1313,8 +1398,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Agent tool: book an accepted deal. Large contracts wait for human approval.'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -1323,8 +1408,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
@@ -1612,8 +1712,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Seller Console: set the current diesel price (inserts a MANUAL FUEL_INDEX row).'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -1622,8 +1722,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
@@ -1867,8 +1982,8 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
-EXECUTE AS OWNER
 COMMENT = 'Seller Console: approve or reject an order awaiting approval.'
+EXECUTE AS OWNER
 AS
 $$
 import json
@@ -1877,8 +1992,23 @@ import uuid
 
 def q(session, sql, params=None):
     # Every buyer-supplied value goes in params (qmark binds), never into the SQL text.
+    # Snowpark binds Python None as the string 'None', so None params become a literal NULL.
     if params:
-        return session.sql(sql, params=list(params)).collect()
+        params = list(params)
+        if any(p is None for p in params):
+            parts = sql.split("?")
+            if len(parts) - 1 == len(params):
+                out, kept = [parts[0]], []
+                for p, rest in zip(params, parts[1:]):
+                    if p is None:
+                        out.append("NULL")
+                    else:
+                        out.append("?")
+                        kept.append(p)
+                    out.append(rest)
+                sql, params = "".join(out), kept
+        if params:
+            return session.sql(sql, params=params).collect()
     return session.sql(sql).collect()
 
 
