@@ -1,0 +1,11 @@
+# secrets — never commit
+.env
+*.p8
+*.pem
+connections.toml
+config.toml
+*token*
+# local
+__pycache__/
+.venv/
+.DS_Store
