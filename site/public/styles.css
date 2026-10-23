@@ -318,3 +318,12 @@ pre.code .s { color: #ffc35c; }
 footer { border-top: 1px solid var(--line-soft); padding: 36px 0 48px; color: var(--ink-3); font-size: 14px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; justify-content: space-between; align-items: center; }
 footer p { margin: 0; max-width: 720px; }
+
+/* Auth links in nav/hero */
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.nav-signin { color: var(--ink-2); text-decoration: none; font-size: 15px; white-space: nowrap; }
+.nav-signin:hover { color: var(--ink); }
+.nav-actions .btn { white-space: nowrap; }
+@media (max-width: 860px) { .nav-actions { margin-left: auto; } .nav .nav-actions .btn { margin-left: 0; } }
+@media (max-width: 480px) { .nav-gh { display: none; } .brand { font-size: 17px; } }
+.hero-auth { margin-top: 10px; font-size: 15px; }

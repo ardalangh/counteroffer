@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seller setup · Counteroffer</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#071022" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="auth.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" data-page="home" aria-label="Counteroffer home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0b1426"/><path d="M14 44h36" stroke="#f5a623" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 7"/><path d="M14 22c10 0 12 14 18 14s8-14 18-14" fill="none" stroke="#7fd4ff" stroke-width="5" stroke-linecap="round"/></svg>
+      Counteroffer
+    </a>
+    <div class="nav-right" id="userbar" hidden>
+      <span class="who" id="who"></span>
+      <button class="btn btn-sm" type="button" id="signout">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<div class="loading" id="loading" role="status">Checking your session…</div>
+
+<main class="app-main" id="main" hidden>
+  <div class="wrap">
+    <div class="app-head">
+      <div class="eyebrow">Seller onboarding</div>
+      <h1>Open your storefront for AI buyers</h1>
+      <p class="lede">Six steps. Everything runs in <em>your</em> Snowflake account under your admin. Your progress saves automatically.</p>
+    </div>
+
+    <div class="progress">
+      <div class="progress-top"><span id="progress-text">0 of 6 steps done</span><span class="save-state" id="save-state" aria-live="polite"></span></div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" id="bar"><i id="bar-fill"></i></div>
+      <ul class="chips" id="chips"></ul>
+    </div>
+
+    <section class="card live-banner" id="live" hidden aria-live="polite">
+      <div class="eyebrow">All 6 steps done</div>
+      <h2>Your storefront is live</h2>
+      <p>Buyers' AI agents can now negotiate with <b id="live-company"></b> at:</p>
+      <div class="url-box" id="live-url"></div>
+      <p style="margin:0">Your agent never sees the floor. Watch deals and approvals in the Seller Console.</p>
+    </section>
+
+    <!-- STEP 1 -->
+    <section class="card wstep" id="step-1" data-step="1">
+      <div class="wstep-head"><span class="num">1</span><h2>Your workspace</h2></div>
+      <div class="grid2">
+        <div class="field">
+          <label for="company">Company name</label>
+          <input id="company" type="text" autocomplete="organization" maxlength="80" placeholder="Acme Freight Co.">
+        </div>
+        <div class="field">
+          <label for="industry">Industry</label>
+          <select id="industry">
+            <option value="freight">Freight / logistics</option>
+            <option value="distribution">Distribution</option>
+            <option value="saas">B2B SaaS</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="account">Snowflake account identifier</label>
+        <input id="account" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="120" placeholder="ORGNAME-ACCOUNTNAME" aria-describedby="account-hint account-err">
+        <span class="hint" id="account-hint">Format <code>ORGNAME-ACCOUNTNAME</code>. Find it in Snowsight: click your name (bottom-left) → <em>Connect a tool to Snowflake</em>.</span>
+        <p class="err" id="account-err" hidden></p>
+      </div>
+      <p style="margin-bottom:4px">Storefront host</p>
+      <div class="derived" id="host-out"></div>
+      <label class="donebox"><input type="checkbox" data-done="1"> Mark done</label>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="card wstep" id="step-2" data-step="2">
+      <div class="wstep-head"><span class="num">2</span><h2>Prerequisites</h2></div>
+      <p>You need <code>ACCOUNTADMIN</code> for setup. Claude models on Cortex need cross-region inference enabled. Run this in a Snowsight worksheet:</p>
+      <pre class="code"><code id="sql-prereq"></code></pre>
+      <p>You should see <code>pong</code>. If you do, Claude is reachable from your account.</p>
+      <label class="donebox"><input type="checkbox" data-done="2"> Mark done</label>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="card wstep" id="step-3" data-step="3">
+      <div class="wstep-head"><span class="num">3</span><h2>Install Counteroffer</h2></div>
+      <p>Run the SQL files <b>in order</b> in a Snowsight worksheet (open each, copy, paste, run all).</p>
+      <ul class="files" id="files"></ul>
+      <p class="notice amber"><code>02_seed</code> loads demo data. Skip it or replace it when you're mapping your own lanes, cost basis and customers.</p>
+      <label class="donebox"><input type="checkbox" data-done="3"> Mark done</label>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="card wstep" id="step-4" data-step="4">
+      <div class="wstep-head"><span class="num">4</span><h2>Set your pricing rules (no code)</h2></div>
+      <p class="tagline">Policy is data — changing it is an <code>UPDATE</code>, not a redeploy.</p>
+      <p>These values live in <code>COUNTEROFFER.PRIVATE</code>. The sales agent can't read them; it only ever gets ACCEPT / COUNTER / REJECT / FINAL back.</p>
+      <div class="tiers" id="tiers"></div>
+      <p class="lbl" style="margin-bottom:8px">Concession lever credits (margin points)</p>
+      <div class="levers" id="levers"></div>
+      <p class="notice bad" id="policy-err" role="alert" hidden></p>
+      <div class="preview">
+        <h3>Floor preview · example load, cost $3,635.33</h3>
+        <div class="table-scroll"><table class="ptable" id="preview"></table></div>
+      </div>
+      <pre class="code"><code id="sql-policy"></code></pre>
+      <label class="donebox"><input type="checkbox" data-done="4"> Mark done</label>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="card wstep" id="step-5" data-step="5">
+      <div class="wstep-head"><span class="num">5</span><h2>Publish your storefront</h2></div>
+      <p class="notice good privacy"><span aria-hidden="true">🔒</span><span><b>Counteroffer never stores your Snowflake credentials; everything runs in your account under your admin.</b> Don't paste your client secret, passwords or tokens here.</span></p>
+      <p><b>a.</b> Create the OAuth integration buyers sign in through:</p>
+      <pre class="code"><code id="sql-oauth"></code></pre>
+      <p><b>b.</b> Publish the MCP server that fronts your sales agent:</p>
+      <pre class="code"><code id="sql-mcp"></code></pre>
+      <p>Your storefront URL:</p>
+      <div class="url-box" id="url-out"></div>
+      <div class="field" style="margin-top:16px">
+        <label for="clientid">OAuth client ID <span style="color:var(--ink-3);font-weight:400">(optional)</span></label>
+        <input id="clientid" type="text" autocomplete="off" spellcheck="false" maxlength="200" placeholder="From SYSTEM$SHOW_OAUTH_CLIENT_SECRETS → OAUTH_CLIENT_ID">
+        <span class="hint">Just the client <b>ID</b> — it's an identifier, safe to share with buyers. Never the client secret.</span>
+      </div>
+      <label class="donebox"><input type="checkbox" data-done="5"> Mark done</label>
+    </section>
+
+    <!-- STEP 6 -->
+    <section class="card wstep" id="step-6" data-step="6">
+      <div class="wstep-head"><span class="num">6</span><h2>Invite your buyers</h2></div>
+      <p>What buyers see when they add your storefront to Claude:</p>
+      <div class="connector" aria-label="Connector card preview">
+        <div class="ct"><span class="logo" id="cc-logo">C</span><div><b id="cc-name"></b><small>Custom connector · MCP</small></div></div>
+        <dl>
+          <dt>Remote MCP server URL</dt><dd id="cc-url"></dd>
+          <dt>OAuth client ID</dt><dd id="cc-client"></dd>
+        </dl>
+      </div>
+      <p class="lbl" style="margin-bottom:8px">Invite message</p>
+      <pre class="code wrapcode"><code id="invite"></code></pre>
+      <h3 style="margin:22px 0 8px">Watch &amp; approve</h3>
+      <p>Deploy the Seller Console (<a href="https://github.com/ardalangh/counteroffer/blob/main/ui/streamlit_app.py" target="_blank" rel="noopener"><code>ui/streamlit_app.py</code></a>) as a Streamlit app in Snowflake to watch negotiations live and approve deals above your approval threshold.</p>
+      <label class="donebox"><input type="checkbox" data-done="6"> Mark done</label>
+    </section>
+  </div>
+</main>
+
+<script type="module" src="wizard.js"></script>
+</body>
+</html>

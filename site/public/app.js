@@ -1,4 +1,11 @@
 (function () {
+  // Firebase Hosting serves /login via cleanUrls; a plain static server needs login.html.
+  if (!/\.(web\.app|firebaseapp\.com)$/.test(location.hostname)) {
+    document.querySelectorAll('a[href^="/login"], a[href^="/app"]').forEach(function (a) {
+      var h = a.getAttribute('href');
+      a.setAttribute('href', h.replace(/^\/(login|app)/, '$1.html'));
+    });
+  }
   // Copy buttons for every code block
   document.querySelectorAll('pre.code').forEach(function (pre) {
     var btn = document.createElement('button');
