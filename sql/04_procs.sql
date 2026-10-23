@@ -104,7 +104,7 @@ WITH last_offer AS (
          PICKUP_WINDOW_HRS, DECISION, COUNTER_RATE
   FROM COUNTEROFFER.PUBLIC.NEGOTIATION_LEDGER
   WHERE ACTION = 'OFFER'
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY NEGOTIATION_ID ORDER BY EVENT_ID DESC, TS DESC) = 1
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY NEGOTIATION_ID ORDER BY TS DESC, EVENT_ID DESC) = 1
 ),
 diesel AS (
   SELECT MAX_BY(DIESEL_PRICE_USD, EFFECTIVE_TS) AS DIESEL_PRICE_USD
@@ -1362,18 +1362,18 @@ def evaluate(session, negotiation_id, rate_per_load, term_months, loads_per_week
     prev_counter = scalar(session,
                           "SELECT COUNTER_RATE FROM COUNTEROFFER.PUBLIC.NEGOTIATION_LEDGER "
                           "WHERE NEGOTIATION_ID = ? AND ACTION = 'OFFER' AND COUNTER_RATE IS NOT NULL "
-                          "ORDER BY EVENT_ID DESC LIMIT 1", [nid])
+                          "ORDER BY TS DESC, EVENT_ID DESC LIMIT 1", [nid])
     final_rate = None
     if status == "FINAL":
         final_rate = scalar(session,
                             "SELECT COUNTER_RATE FROM COUNTEROFFER.PUBLIC.NEGOTIATION_LEDGER "
                             "WHERE NEGOTIATION_ID = ? AND ACTION = 'OFFER' AND DECISION = 'FINAL' "
-                            "AND COUNTER_RATE IS NOT NULL ORDER BY EVENT_ID DESC LIMIT 1", [nid])
+                            "AND COUNTER_RATE IS NOT NULL ORDER BY TS DESC, EVENT_ID DESC LIMIT 1", [nid])
     prior = q(session,
               "SELECT RATE_PER_LOAD, TERM_MONTHS, LOADS_PER_WEEK, PAYMENT_TERMS, PICKUP_WINDOW_HRS "
               "FROM COUNTEROFFER.PUBLIC.NEGOTIATION_LEDGER "
               "WHERE NEGOTIATION_ID = ? AND ACTION = 'OFFER' AND RATE_PER_LOAD IS NOT NULL "
-              "ORDER BY EVENT_ID DESC LIMIT " + str(PROBE_RUN - 1), [nid])
+              "ORDER BY TS DESC, EVENT_ID DESC LIMIT " + str(PROBE_RUN - 1), [nid])
     prior_offers = [(r["RATE_PER_LOAD"], normalize_terms(r["TERM_MONTHS"], r["LOADS_PER_WEEK"],
                                                          r["PAYMENT_TERMS"], r["PICKUP_WINDOW_HRS"]))
                     for r in prior]
@@ -1682,7 +1682,7 @@ def commit(session, negotiation_id):
             "SELECT RATE_PER_LOAD, TERM_MONTHS, LOADS_PER_WEEK, PAYMENT_TERMS, PICKUP_WINDOW_HRS "
             "FROM COUNTEROFFER.PUBLIC.NEGOTIATION_LEDGER "
             "WHERE NEGOTIATION_ID = ? AND ACTION = 'OFFER' AND DECISION = 'ACCEPT' "
-            "ORDER BY EVENT_ID DESC LIMIT 1", [nid])
+            "ORDER BY TS DESC, EVENT_ID DESC LIMIT 1", [nid])
     if not acc:
         raise ValueError("No accepted offer found for " + nid + ".")
     a = acc[0]
